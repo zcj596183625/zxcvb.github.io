@@ -1,0 +1,191 @@
+Date.prototype.Format = function(fmt) { //author: meizz 
+	var o = {
+		"M+": this.getMonth() + 1, //月份 
+		"d+": this.getDate(), //日 
+		"h+": this.getHours(), //小时 
+		"m+": this.getMinutes(), //分 
+		"s+": this.getSeconds(), //秒 
+		"q+": Math.floor((this.getMonth() + 3) / 3), //季度 
+		"S": this.getMilliseconds() //毫秒 
+	};
+	if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+	for (var k in o)
+		if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+	return fmt;
+}
+var $ = Dom7;
+Vue.use(Framework7Vue);
+var app = function() {
+	this.version = "1.0.0";
+}
+
+app.prototype = {
+	toast: function(title) {
+		f7.addNotification({
+			title: title,
+			hold: 3000,
+			button: {
+				text: ""
+			}
+		})
+	},
+	//手机号码
+	checkTel: function(val) {
+		var isMobileNum = false;
+		if (val && typeof val === "string") {
+			val = val.replace(/(^\s*)|(\s*$)/g, "");
+			var strCheck = /^1[34578]\d{9}$/;
+			if (strCheck.exec(val)) {
+				isMobileNum = true;
+			}
+		}
+		return isMobileNum;
+	},
+	//身份证号
+	checkId: function(val) {
+		var isId = false;
+		if (val && typeof val === "string") {
+			var strCheck = /^\d{15}$|^\d{14}x$|^\d{14}X$|^\d{18}$|^\d{17}x$|^\d{17}X$/;
+			if (strCheck.exec(val)) {
+				isId = true;
+			}
+		}
+		return isId;
+	}
+}
+var myapp = new app();
+var request = function() {
+	//this.webRoot = "http://127.0.0.1:8080/webtzsbv2/";
+	//this.webRoot = "http://kf.zjtj.org/";
+	this.webRoot = window.location.origin+"/";
+	//alert(this.webRoot);
+}
+request.prototype = {
+	getRequestArr:function(){
+		var url = window.location.search;
+		var re = new Object();
+		if(url.indexOf("?")>-1){
+			var str = url.substr(1);
+			strs = str.split("&");
+			for (var i = strs.length - 1; i >= 0; i--) {
+				re[strs[i].split("=")[0]] = unescape(strs[i].split("=")[1]);
+			}
+		}
+		return re;
+	},
+	ajax: function(url, method, data, fn, hasNoPreloader, timeoutFn, type, asy) {
+		var params = {
+			"sysid": "1024",
+			"sign": "",
+			"timestamp": new Date().Format("yyyy-MM-dd hh:mm:ss"),
+			"v": myapp.version,
+			"req": {
+				"service": url.split("/").pop().split(".")[0],
+				"method": method,
+				"param": data
+			}
+		}
+		var myAjax = $.ajax({
+			url: url,
+			type: type ? type : "post",
+			data: JSON.stringify(params),
+			async: asy === false ? false : true,
+			timeout: 20000,
+			beforeSend: function() {
+				if (!hasNoPreloader) f7.showIndicator();
+			},
+			success: function(re) {
+				if (fn) {
+					(fn)(JSON.parse(re));
+				}
+			},
+			complete: function(xhr, status) {
+				if (!hasNoPreloader) f7.hideIndicator();
+				if (status == "timeout") {
+					myAjax.abort();
+					myapp.toast("请求超时，请稍后重试");
+					if (timeoutFn) {
+						(timeoutFn)(xhr, status);
+					}
+				}
+			}
+		});
+	},
+	post:function(url,data ,fn, hasNoPreloader, timeoutFn, asy) {
+		var myAjax = $.ajax({
+			url: url,
+			type: "post",
+			data: data,
+			async: asy === false ? false : true,
+			timeout: 20000,
+			beforeSend: function() {
+				if (!hasNoPreloader) f7.showIndicator();
+			},
+			success: function(re) {
+				if (fn) {
+					(fn)(JSON.parse(re));
+				}
+			},
+			complete: function(xhr, status) {
+				if (!hasNoPreloader) f7.hideIndicator();
+				if (status == "timeout") {
+					myAjax.abort();
+					myapp.toast("请求超时，请稍后重试");
+					if (timeoutFn) {
+						(timeoutFn)(xhr, status);
+					}
+				}
+			}
+		});
+	},
+	getTemplate: function(url) {
+		var template;
+		if (url) {
+			if (url.indexOf("#") == 0) {
+				template = $("'" + url + "'").html();
+			} else {
+				$.ajax({
+					url: url,
+					type: "get",
+					async: false,
+					success: function(re) {
+						template = re;
+					}
+				})
+			}
+		}
+		return template;
+	},
+	//获取短信码
+	getMsgCode: function(data, fn) {
+		this.ajax(this.webRoot + "app/app_inf.action", "app_getsmscode", data, fn);
+	},
+	//验证短信码
+	verifyMsgCode: function(data, fn) {
+		this.ajax(this.webRoot + "app/app_inf.action", "app_verifysmscode", data, fn);
+	},
+	//获取设备大类
+	getDev_type_l1: function(data, fn) {
+		data = $.extend(data, {
+			listkey: "DEV_TYPE_L1"
+		});
+		this.ajax(this.webRoot + "app/app_inf.action", "app_getkeyvaluelist", data, fn);
+	},
+	//根据设备大类获取检验类型
+	getBiz_type: function(data, fn) {
+		this.ajax(this.webRoot + "app/app_inf.action", "app_getbiztype", data, fn);
+	},
+	addOrder:function(data, fn){
+		this.ajax(this.webRoot + "app/app_inf.action", "app_preaddaccept", data, fn);
+	},
+	getAcceptInfo:function(data, fn){
+		this.ajax(this.webRoot + "app/app_inf.action", "app_getacceptinfobywx", data, fn);
+	},
+	getReport:function(data, fn){
+		this.post(this.webRoot + "webtzsb/getInfo.action?temp="+ Math.random(), data, fn);
+	},
+	addSay:function(data, fn){
+		this.post(this.webRoot + "intWebtjLeaveMessage/ext_add.action", data, fn);
+	}
+}
+var myreq = new request();
